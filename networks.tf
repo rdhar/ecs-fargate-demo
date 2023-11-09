@@ -1,21 +1,21 @@
 data "aws_availability_zones" "available" {}
 
 locals {
-  tmp_name = "ecs_fargate_demo"
-  tmp_cidr = "10.0.0.0/16"
-  tmp_azs  = slice(data.aws_availability_zones.available.names, 0, 3)
+  name = "ecs_fargate_demo"
+  cidr = "10.0.0.0/16"
+  azs  = slice(data.aws_availability_zones.available.names, 0, 3)
 }
 
 module "aws_vpc__demo" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "~> 5.0"
 
-  name = local.tmp_name
-  cidr = local.tmp_cidr
+  name = local.name
+  cidr = local.cidr
 
-  azs             = local.tmp_azs
-  private_subnets = [for k, v in local.tmp_azs : cidrsubnet(local.tmp_cidr, 4, k)]
-  public_subnets  = [for k, v in local.tmp_azs : cidrsubnet(local.tmp_cidr, 4, k + 3)]
+  azs             = local.azs
+  private_subnets = [for k, v in local.azs : cidrsubnet(local.cidr, 4, k)]
+  public_subnets  = [for k, v in local.azs : cidrsubnet(local.cidr, 4, k + 3)]
 
   enable_nat_gateway     = true
   single_nat_gateway     = true
@@ -26,7 +26,7 @@ module "aws_lb__demo" {
   source  = "terraform-aws-modules/alb/aws"
   version = "~> 9.0"
 
-  name    = replace(local.tmp_name, "_", "-")
+  name    = replace(local.name, "_", "-")
   vpc_id  = module.aws_vpc__demo.vpc_id
   subnets = module.aws_vpc__demo.public_subnets
 
@@ -66,8 +66,8 @@ module "aws_lb__demo" {
           }]
 
           conditions = [{
-            path_pattern = { # host_headers
-              values = ["/${service.name}"]
+            path_pattern = {
+              values = ["/${service.name}*"]
             }
           }]
         }
@@ -77,10 +77,14 @@ module "aws_lb__demo" {
 
   target_groups = {
     for service in local.services : service.name => {
-      name_prefix       = service.name
+      name              = service.name
       backend_port      = service.port
       target_type       = "ip"
       create_attachment = false
+
+      health_check = {
+        path = "/${service.name}/index.html"
+      }
     }
   }
 }

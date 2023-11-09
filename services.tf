@@ -9,7 +9,7 @@ locals {
       port = 80
     },
     {
-      name = "gamma"
+      name = "charlie"
       port = 80
     },
   ]
@@ -35,7 +35,7 @@ module "aws_ecs_service__demo" {
     (each.value.name) = {
       container_definitions = {
         (each.value.name) = {
-          image                    = "httpd:2.4"
+          image                    = "public.ecr.aws/docker/library/httpd:2.4"
           essential                = true
           readonly_root_filesystem = false
 
@@ -45,7 +45,13 @@ module "aws_ecs_service__demo" {
           ]
 
           command = [
-            "echo '<!doctype html><html><head><title>${each.value.name}</title></head></html>' > /usr/local/apache2/htdocs/index.html && httpd-foreground",
+            join(" && ", [
+              "cd htdocs",
+              "mkdir -p ${each.value.name}/nested",
+              "echo '<!doctype html><html><head><title>${each.value.name}</title></head><body><a href=./nested>./nested</a></body></html>' > /usr/local/apache2/htdocs/${each.value.name}/index.html",
+              "echo '<!doctype html><html><head><title>${each.value.name}/nested</title></head><body><a href=../>../(up)</a></body></html>' > /usr/local/apache2/htdocs/${each.value.name}/nested/index.html",
+              "httpd-foreground",
+            ]),
           ]
 
           port_mappings = [{
