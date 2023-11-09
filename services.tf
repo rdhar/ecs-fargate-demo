@@ -47,9 +47,9 @@ module "aws_ecs_service__demo" {
           command = [
             join(" && ", [
               "cd htdocs",
-              "mkdir -p ${each.value.name}/nested",
-              "echo '<!doctype html><html><head><title>${each.value.name}</title></head><body><a href=./nested>./nested</a></body></html>' > /usr/local/apache2/htdocs/${each.value.name}/index.html",
-              "echo '<!doctype html><html><head><title>${each.value.name}/nested</title></head><body><a href=../>../(up)</a></body></html>' > /usr/local/apache2/htdocs/${each.value.name}/nested/index.html",
+              "mkdir -p nested",
+              "echo '<!doctype html><html><head><title>${each.value.name}</title></head><body><a href=./nested>./nested</a> @ <script>document.write(window.location.host)</script></body></html>' > /usr/local/apache2/htdocs/index.html",
+              "echo '<!doctype html><html><head><title>${each.value.name}/nested</title></head><body><a href=../>../(up)</a> @ <script>document.write(window.location.host)</script></body></html>' > /usr/local/apache2/htdocs/nested/index.html",
               "httpd-foreground",
             ]),
           ]

@@ -1,9 +1,14 @@
 data "aws_availability_zones" "available" {}
 
+data "aws_route53_zone" "domain" {
+  name = local.domain
+}
+
 locals {
-  name = "ecs_fargate_demo"
-  cidr = "10.0.0.0/16"
-  azs  = slice(data.aws_availability_zones.available.names, 0, 3)
+  name   = "ecs_fargate_demo"
+  cidr   = "10.0.0.0/16"
+  azs    = slice(data.aws_availability_zones.available.names, 0, 3)
+  domain = "sub.domain.io"
 }
 
 module "aws_vpc__demo" {
@@ -66,8 +71,8 @@ module "aws_lb__demo" {
           }]
 
           conditions = [{
-            path_pattern = {
-              values = ["/${service.name}*"]
+            host_header = {
+              values = ["${service.name}.${local.domain}"]
             }
           }]
         }
@@ -83,8 +88,16 @@ module "aws_lb__demo" {
       create_attachment = false
 
       health_check = {
-        path = "/${service.name}/index.html"
+        path = "/"
       }
+    }
+  }
+
+  route53_records = {
+    for service in local.services : "${service.name}-A" => {
+      name    = service.name
+      type    = "A"
+      zone_id = data.aws_route53_zone.domain.id
     }
   }
 }
