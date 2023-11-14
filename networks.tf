@@ -8,7 +8,7 @@ locals {
   name   = "ecs_fargate_demo"
   cidr   = "10.0.0.0/16"
   azs    = slice(data.aws_availability_zones.available.names, 0, 3)
-  domain = "sub.domain.io"
+  domain = "www.example.com"
 }
 
 module "aws_vpc__demo" {
@@ -59,20 +59,23 @@ module "aws_lb__demo" {
       port     = 80
       protocol = "HTTP"
 
-      forward = {
-        target_group_key = local.services[0].name
+      redirect = {
+        host        = local.domain
+        path        = "/"
+        protocol    = "HTTP"
+        status_code = "HTTP_302"
       }
 
       rules = {
-        for service in local.services : service.name => {
+        for key, value in local.service_map : key => {
           actions = [{
-            target_group_key = service.name
+            target_group_key = key
             type             = "forward"
           }]
 
           conditions = [{
             host_header = {
-              values = ["${service.name}.${local.domain}"]
+              values = ["${key}.${local.domain}"]
             }
           }]
         }
@@ -81,9 +84,9 @@ module "aws_lb__demo" {
   }
 
   target_groups = {
-    for service in local.services : service.name => {
-      name              = service.name
-      backend_port      = service.port
+    for key, value in local.service_map : key => {
+      name              = key
+      backend_port      = value.port
       target_type       = "ip"
       create_attachment = false
 
@@ -94,8 +97,8 @@ module "aws_lb__demo" {
   }
 
   route53_records = {
-    for service in local.services : "${service.name}-A" => {
-      name    = service.name
+    for key, value in local.service_map : "${key}-A" => {
+      name    = key
       type    = "A"
       zone_id = data.aws_route53_zone.domain.id
     }

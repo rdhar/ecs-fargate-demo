@@ -1,26 +1,24 @@
 locals {
-  services = [
-    {
-      name = "alpha"
+  service_map = {
+    alpha = {
       port = 80
-    },
-    {
-      name = "bravo"
+    }
+    bravo = {
       port = 80
-    },
-    {
-      name = "charlie"
+    }
+    charlie = {
       port = 80
-    },
-  ]
+    }
+  }
 }
 
+
 module "aws_ecs_service__demo" {
-  for_each = { for r in local.services : r.name => r }
   source   = "terraform-aws-modules/ecs/aws"
   version  = "~> 5.0"
+  for_each = local.service_map
 
-  cluster_name = each.value.name
+  cluster_name = each.key
 
   fargate_capacity_providers = {
     FARGATE = {
@@ -32,9 +30,9 @@ module "aws_ecs_service__demo" {
   }
 
   services = {
-    (each.value.name) = {
+    (each.key) = {
       container_definitions = {
-        (each.value.name) = {
+        (each.key) = {
           image                    = "public.ecr.aws/docker/library/httpd:2.4"
           essential                = true
           readonly_root_filesystem = false
@@ -48,14 +46,14 @@ module "aws_ecs_service__demo" {
             join(" && ", [
               "cd htdocs",
               "mkdir -p nested",
-              "echo '<!doctype html><html><head><title>${each.value.name}</title></head><body><a href=./nested>./nested</a> @ <script>document.write(window.location.host)</script></body></html>' > /usr/local/apache2/htdocs/index.html",
-              "echo '<!doctype html><html><head><title>${each.value.name}/nested</title></head><body><a href=../>../(up)</a> @ <script>document.write(window.location.host)</script></body></html>' > /usr/local/apache2/htdocs/nested/index.html",
+              "echo '<!doctype html><html><head><title>${each.key}</title></head><body><a href=./nested>./nested</a> @ <script>document.write(window.location.host)</script></body></html>' > /usr/local/apache2/htdocs/index.html",
+              "echo '<!doctype html><html><head><title>${each.key}/nested</title></head><body><a href=../>../(up)</a> @ <script>document.write(window.location.host)</script></body></html>' > /usr/local/apache2/htdocs/nested/index.html",
               "httpd-foreground",
             ]),
           ]
 
           port_mappings = [{
-            name          = each.value.name
+            name          = each.key
             containerPort = each.value.port
           }]
         }
@@ -84,9 +82,9 @@ module "aws_ecs_service__demo" {
 
       load_balancer = {
         service = {
-          container_name   = each.value.name
+          container_name   = each.key
           container_port   = each.value.port
-          target_group_arn = module.aws_lb__demo.target_groups[each.value.name].arn
+          target_group_arn = module.aws_lb__demo.target_groups[each.key].arn
         }
       }
     }
